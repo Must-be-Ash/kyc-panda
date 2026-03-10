@@ -194,7 +194,7 @@ export default function Docs() {
             </p>
             <MultiLineCodeBlock
               label="Adds sign-in-with-x challenge + kyc-gate metadata to 402 responses"
-              code={`import { declareKYCGateExtension } from "./lib/bouncer";
+              code={`import { declareKYCGateExtension } from "kyc-panda";
 
 const extensions = declareKYCGateExtension({
   domain: "api.yourservice.com",
@@ -214,7 +214,7 @@ const extensions = declareKYCGateExtension({
             </p>
             <MultiLineCodeBlock
               label="Verifies SIWX signature, checks KYC status via verify endpoint"
-              code={`import { createKYCGateHook } from "./lib/bouncer";
+              code={`import { createKYCGateHook } from "kyc-panda";
 
 const kycGate = createKYCGateHook();
 

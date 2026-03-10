@@ -9,7 +9,31 @@ It lets clients sign in with SIWX, start KYC onboarding, and verify whether a wa
 - `GET /api/verify/[address]` returns whether a wallet is KYC-approved.
 - `POST /api/webhook` receives KYC provider updates and syncs wallet status.
 
-The repo also includes helpers in `lib/bouncer/` for declaring a KYC gate in a `402` response and validating the returned SIWX proof.
+## Add KYC to Your x402 Endpoint
+
+```bash
+npm install kyc-panda
+```
+
+```typescript
+import { createKYCGateHook, declareKYCGateExtension } from "kyc-panda";
+
+// 1. Declare KYC requirement in your 402 response
+const extensions = declareKYCGateExtension({
+  domain: "your-api.com",
+  uri: "https://your-api.com/protected-resource",
+});
+
+// 2. Check KYC on incoming requests
+const checkKYC = createKYCGateHook();
+const result = await checkKYC(request);
+if (!result.grantAccess) {
+  // result.reason: "KYC_NOT_FOUND" | "KYC_EXPIRED" | ...
+  // result.onboardingUrl: where the human can complete KYC
+}
+```
+
+See [apply.md](./apply.md) for the full integration guide.
 
 ## Privacy
 

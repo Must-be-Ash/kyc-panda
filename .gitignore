@@ -43,3 +43,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# package build output
+packages/*/dist
+packages/*/node_modules
+*.tgz

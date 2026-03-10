@@ -1,0 +1,46 @@
+{
+  "name": "kyc-panda",
+  "version": "0.1.0",
+  "description": "KYC gate extension for x402 endpoints. Verify once, transact anywhere.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@x402/extensions": "^2.6.0"
+  },
+  "peerDependencies": {},
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "x402",
+    "kyc",
+    "siwx",
+    "sign-in-with-x",
+    "caip-122",
+    "identity",
+    "verification",
+    "evm",
+    "solana"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ArshanKhanifar/x402kyc"
+  }
+}

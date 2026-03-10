@@ -40,3 +40,5 @@ Use Cases
 
 repo: https://github.com/AshNouruzi/x402kyc
 site: https://kyc-panda.vercel.app
+example implementation demo: https://x402test-endpoint.vercel.app/
+example implementation repo: https://github.com/Must-be-Ash/x402test-endpoint
