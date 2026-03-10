@@ -44,7 +44,7 @@ export const metadata: Metadata = {
     siteName: "KYC Panda",
     images: [
       {
-        url: "/og.png",
+        url: "https://kyc-panda.vercel.app/og.png",
         width: 1200,
         height: 630,
         alt: "KYC Panda - x402 KYC Gate Extension",
@@ -57,7 +57,7 @@ export const metadata: Metadata = {
     title: "KYC Panda | x402 KYC Gate Extension",
     description:
       "KYC gate extension for x402 endpoints. Verify once with your wallet, transact anywhere.",
-    images: ["/og.png"],
+    images: ["https://kyc-panda.vercel.app/og.png"],
   },
 };
 
