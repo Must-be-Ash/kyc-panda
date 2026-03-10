@@ -24,6 +24,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!DIDIT_API_KEY || !DIDIT_WORKFLOW_ID) {
+      return NextResponse.json(
+        { error: "KYC service not configured" },
+        { status: 503 }
+      );
+    }
+
     const body = await request.json();
     const { siwxMessage, signature } = body;
 
@@ -130,12 +137,12 @@ export async function POST(request: NextRequest) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-api-key": DIDIT_API_KEY || "",
+          "x-api-key": DIDIT_API_KEY,
         },
         body: JSON.stringify({
           workflow_id: DIDIT_WORKFLOW_ID,
           vendor_data: onboardingId,
-          callback: `https://${SIWX_DOMAIN}`,
+          callback: `https://${SIWX_DOMAIN}/api/webhook`,
           metadata: { walletAddress, chain },
         }),
       });

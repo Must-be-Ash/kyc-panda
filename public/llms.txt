@@ -1,0 +1,32 @@
+# KYC Panda - x402 KYC Gate Extension
+
+> KYC gate for x402 payment protocol. Wallet owners verify identity once, then their agents can transact on any KYC-gated x402 endpoint.
+
+## For Client Agents (Buyers)
+
+When you hit an x402 endpoint and get a 402 response with a `kyc-gate` extension, your wallet needs KYC verification.
+
+1. Check KYC status: GET https://kyc-panda.vercel.app/api/verify/{walletAddress}
+2. If not verified, start onboarding: POST https://kyc-panda.vercel.app/api/onboard (with SIWX message + signature)
+3. The human wallet owner completes KYC at the returned Didit URL
+4. Once approved, your SIWX signatures will pass the KYC gate
+
+## For Server Agents (Sellers)
+
+Add KYC requirements to your x402 endpoints using the bouncer library.
+
+1. Import: createKYCGateHook, declareKYCGateExtension
+2. Add declareKYCGateExtension({domain, uri}) to your 402 response extensions
+3. Use createKYCGateHook() to verify SIWX headers on incoming requests
+
+## API Endpoints
+
+- Check KYC status: GET /api/verify/{address}
+- Start KYC onboarding: POST /api/onboard
+- Service health: GET /api/health
+
+## Documentation
+
+- Full Skill Guide: https://kyc-panda.vercel.app/skill.md
+- API Specification: https://kyc-panda.vercel.app/openapi.json
+- OpenAI Plugin: https://kyc-panda.vercel.app/.well-known/ai-plugin.json

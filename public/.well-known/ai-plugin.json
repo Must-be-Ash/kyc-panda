@@ -1,0 +1,17 @@
+{
+  "schema_version": "v1",
+  "name_for_human": "KYC Panda - x402 KYC Gate",
+  "name_for_model": "x402_kyc_gate",
+  "description_for_human": "KYC gate extension for x402 endpoints. Verify once with your wallet, transact anywhere.",
+  "description_for_model": "KYC gate extension for x402 payment protocol using Sign-In-With-X (SIWX). If you are a SERVER AGENT (seller): use createKYCGateHook and declareKYCGateExtension from the bouncer library to require KYC on your x402 endpoints. If you are a CLIENT AGENT (buyer): when you see a kyc-gate extension in a 402 response, sign the SIWX challenge and POST to /api/onboard with your SIWX message + signature to start KYC. Check /api/verify/{address} to see if your wallet is already verified.",
+  "auth": {
+    "type": "none"
+  },
+  "api": {
+    "type": "openapi",
+    "url": "https://kyc-panda.vercel.app/openapi.json"
+  },
+  "logo_url": "https://kyc-panda.vercel.app/logo.svg",
+  "contact_email": "support@kyc-panda.vercel.app",
+  "legal_info_url": "https://kyc-panda.vercel.app/skill.md"
+}

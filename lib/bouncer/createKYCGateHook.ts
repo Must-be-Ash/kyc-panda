@@ -130,6 +130,13 @@ export function createKYCGateHook(config: KYCGateConfig = {}) {
 
     // 6. Extract numeric chain ID from CAIP-2 format (e.g. "eip155:8453" → 8453)
     const numericChainId = parseInt(payload.chainId.split(":")[1], 10);
+    if (isNaN(numericChainId)) {
+      return {
+        grantAccess: false,
+        reason: "INVALID_SIGNATURE",
+        onboardingUrl: DEFAULT_ONBOARDING_URL,
+      };
+    }
 
     // 7. Reconstruct SIWE message from payload fields and verify
     let siweMsg: SiweMessage;
