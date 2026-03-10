@@ -53,9 +53,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate issuedAt is within the last 5 minutes
+    // Validate issuedAt is within the last 5 minutes and not in the future
     if (siweMsg.issuedAt) {
       const issuedAt = new Date(siweMsg.issuedAt).getTime();
+      if (issuedAt > Date.now()) {
+        return NextResponse.json(
+          { error: "issuedAt is in the future" },
+          { status: 400 }
+        );
+      }
       if (Date.now() - issuedAt > MAX_AGE_MS) {
         return NextResponse.json(
           { error: "Message too old — issuedAt is more than 5 minutes ago" },
@@ -130,6 +136,7 @@ export async function POST(request: NextRequest) {
           workflow_id: DIDIT_WORKFLOW_ID,
           vendor_data: onboardingId,
           callback: `https://${SIWX_DOMAIN}`,
+          metadata: { walletAddress, chain },
         }),
       });
 

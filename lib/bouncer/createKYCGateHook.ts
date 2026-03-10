@@ -3,6 +3,7 @@ import type { KYCGateConfig, KYCGateResult } from "./types";
 
 const DEFAULT_VERIFY_ENDPOINT = "https://kyc-panda.vercel.app/api/verify";
 const DEFAULT_ONBOARDING_URL = "https://kyc-panda.vercel.app/api/onboard";
+const MAX_AGE_MS = 5 * 60 * 1000; // 5 minutes
 
 /**
  * SIWX payload as defined by the x402 sign-in-with-x extension spec.
@@ -71,10 +72,66 @@ export function createKYCGateHook(config: KYCGateConfig = {}) {
       };
     }
 
-    // 4. Extract numeric chain ID from CAIP-2 format (e.g. "eip155:8453" → 8453)
+    // 4. Validate domain — MUST match the request host exactly
+    const requestHost = new URL(request.url).host;
+    if (payload.domain !== requestHost) {
+      return {
+        grantAccess: false,
+        reason: "INVALID_SIGNATURE",
+        onboardingUrl: DEFAULT_ONBOARDING_URL,
+      };
+    }
+
+    // 5. Validate temporal bounds per SIWX spec
+    const now = Date.now();
+
+    // issuedAt MUST be recent (< 5 minutes) and MUST NOT be in the future
+    if (payload.issuedAt) {
+      const issuedAt = new Date(payload.issuedAt).getTime();
+      if (issuedAt > now) {
+        return {
+          grantAccess: false,
+          reason: "INVALID_SIGNATURE",
+          onboardingUrl: DEFAULT_ONBOARDING_URL,
+        };
+      }
+      if (now - issuedAt > MAX_AGE_MS) {
+        return {
+          grantAccess: false,
+          reason: "INVALID_SIGNATURE",
+          onboardingUrl: DEFAULT_ONBOARDING_URL,
+        };
+      }
+    }
+
+    // expirationTime MUST be in the future
+    if (payload.expirationTime) {
+      const expiration = new Date(payload.expirationTime).getTime();
+      if (expiration <= now) {
+        return {
+          grantAccess: false,
+          reason: "INVALID_SIGNATURE",
+          onboardingUrl: DEFAULT_ONBOARDING_URL,
+        };
+      }
+    }
+
+    // notBefore MUST be in the past
+    if (payload.notBefore) {
+      const notBefore = new Date(payload.notBefore).getTime();
+      if (notBefore > now) {
+        return {
+          grantAccess: false,
+          reason: "INVALID_SIGNATURE",
+          onboardingUrl: DEFAULT_ONBOARDING_URL,
+        };
+      }
+    }
+
+    // 6. Extract numeric chain ID from CAIP-2 format (e.g. "eip155:8453" → 8453)
     const numericChainId = parseInt(payload.chainId.split(":")[1], 10);
 
-    // 5. Reconstruct SIWE message from payload fields and verify
+    // 7. Reconstruct SIWE message from payload fields and verify
     let siweMsg: SiweMessage;
     try {
       siweMsg = new SiweMessage({
@@ -99,7 +156,7 @@ export function createKYCGateHook(config: KYCGateConfig = {}) {
       };
     }
 
-    // 6. Verify the EVM signature
+    // 8. Verify the EVM signature
     try {
       await siweMsg.verify({ signature: payload.signature });
     } catch {
@@ -110,10 +167,10 @@ export function createKYCGateHook(config: KYCGateConfig = {}) {
       };
     }
 
-    // 7. Recover wallet address
+    // 9. Recover wallet address
     const walletAddress = siweMsg.address.toLowerCase();
 
-    // 8. Call verify endpoint to check KYC status
+    // 10. Call verify endpoint to check KYC status
     try {
       const response = await fetch(`${verifyEndpoint}/${walletAddress}`);
       const data = await response.json();

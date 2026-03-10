@@ -55,7 +55,12 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = JSON.parse(rawBody);
-    const { vendor_data: onboardingId, status, session_id: sessionId } = payload;
+    const { vendor_data: onboardingId, status, session_id: sessionId, webhook_type: webhookType } = payload;
+
+    // Only process status update events
+    if (webhookType && webhookType !== "status.updated") {
+      return NextResponse.json({ status: "ignored", webhook_type: webhookType });
+    }
 
     if (!onboardingId) {
       return NextResponse.json(
