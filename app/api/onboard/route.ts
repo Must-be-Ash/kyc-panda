@@ -1,16 +1,74 @@
 import { NextRequest, NextResponse } from "next/server";
-import { SiweMessage } from "siwe";
 import { v4 as uuidv4 } from "uuid";
 import { connectToDatabase } from "@/lib/mongodb";
 import { Onboarding } from "@/lib/models/onboarding";
 import { UsedNonce } from "@/lib/models/usedNonce";
 import { rateLimit } from "@/lib/rateLimit";
+import {
+  parseSIWxHeader,
+  validateSIWxMessage,
+  verifySIWxSignature,
+} from "@x402/extensions/sign-in-with-x";
 
 const SIWX_DOMAIN = process.env.SIWX_DOMAIN || "kyc-panda.vercel.app";
 const DIDIT_API_KEY = process.env.DIDIT_API_KEY;
 const DIDIT_WORKFLOW_ID = process.env.DIDIT_WORKFLOW_ID;
 const MAX_AGE_MS = 5 * 60 * 1000; // 5 minutes
 const NONCE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+/**
+ * GET /api/onboard — API discovery for agents.
+ * Returns the request/response schema so agents know how to call this endpoint.
+ */
+export async function GET() {
+  return NextResponse.json({
+    description: "Start KYC verification for a wallet. Submit a signed SIWX (CAIP-122) payload to prove wallet ownership, then complete identity verification at the returned URL.",
+    method: "POST",
+    contentType: "application/json",
+    request: {
+      siwxHeader: {
+        type: "string",
+        description: "Base64-encoded SIWX payload JSON. Same format as the SIGN-IN-WITH-X header used in x402 requests. Create with createSIWxPayload() + encodeSIWxHeader() from @x402/extensions/sign-in-with-x, or manually base64-encode a JSON object with: domain, address, uri, version, chainId, type, nonce, issuedAt, signature (and optionally statement, expirationTime, resources).",
+        example: "eyJkb21haW4iOiJreWMtcGFuZGEudmVyY2VsLmFwcCIsImFkZHJlc3MiOiIweC4uLiIsInVyaSI6Imh0dHBzOi8va3ljLXBhbmRhLnZlcmNlbC5hcHAvYXBpL29uYm9hcmQiLCJ2ZXJzaW9uIjoiMSIsImNoYWluSWQiOiJlaXAxNTU6ODQ1MzIiLCJ0eXBlIjoiZWlwMTkxIiwibm9uY2UiOiIuLi4iLCJpc3N1ZWRBdCI6Ii4uLiIsInNpZ25hdHVyZSI6IjB4Li4uIn0=",
+      },
+    },
+    siwxParams: {
+      domain: SIWX_DOMAIN,
+      uri: `https://${SIWX_DOMAIN}/api/onboard`,
+      statement: "Sign in to start KYC verification",
+      supportedChains: [
+        { chainId: "eip155:84532", type: "eip191" },
+        { chainId: "eip155:8453", type: "eip191" },
+      ],
+    },
+    response: {
+      onboardingId: {
+        type: "string (UUID)",
+        description: "Tracking ID for this onboarding session",
+      },
+      verificationUrl: {
+        type: "string (URL)",
+        description: "Didit hosted verification URL. The human wallet owner must open this to complete identity verification.",
+      },
+    },
+    errors: {
+      400: "Invalid SIWX payload, domain mismatch, expired message, or nonce reuse",
+      401: "Signature verification failed",
+      429: "Rate limit exceeded (10 requests/minute per IP)",
+      502: "KYC provider unavailable",
+    },
+    flow: [
+      "1. Create a SIWX payload with domain '" + SIWX_DOMAIN + "' and URI 'https://" + SIWX_DOMAIN + "/api/onboard'",
+      "2. Sign the message with the wallet (works for any supported chain — EVM, Solana, etc.)",
+      "3. Base64-encode the SIWX payload JSON",
+      "4. POST { siwxHeader: '<base64-encoded-payload>' } to this endpoint",
+      "5. Receive { onboardingId, verificationUrl }",
+      "6. Human opens verificationUrl to complete identity verification",
+      "7. Once approved, the wallet can pass KYC-gated x402 endpoints",
+    ],
+    openapi: "https://kyc-panda.vercel.app/openapi.json",
+  });
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,95 +90,76 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { siwxMessage, signature } = body;
+    const { siwxHeader } = body;
 
-    if (!siwxMessage || !signature) {
+    if (!siwxHeader) {
       return NextResponse.json(
-        { error: "Missing siwxMessage or signature" },
+        { error: "Missing siwxHeader. POST { siwxHeader: '<base64-encoded SIWX payload>' }. GET this endpoint for full docs." },
         { status: 400 }
       );
     }
 
-    // Parse the SIWX message
-    let siweMsg: SiweMessage;
+    // Parse the SIWX payload (base64-encoded JSON)
+    let payload;
     try {
-      siweMsg = new SiweMessage(siwxMessage);
+      payload = parseSIWxHeader(siwxHeader);
     } catch {
       return NextResponse.json(
-        { error: "Invalid SIWX message format" },
+        { error: "Invalid SIWX payload. Must be base64-encoded JSON with domain, address, uri, version, chainId, type, nonce, issuedAt, signature." },
         { status: 400 }
       );
     }
 
     // Validate domain
-    if (siweMsg.domain !== SIWX_DOMAIN) {
+    if (payload.domain !== SIWX_DOMAIN) {
       return NextResponse.json(
-        { error: "Domain mismatch" },
+        { error: `Domain mismatch. Expected '${SIWX_DOMAIN}', got '${payload.domain}'.` },
         { status: 400 }
       );
     }
 
-    // Validate issuedAt is within the last 5 minutes and not in the future
-    if (siweMsg.issuedAt) {
-      const issuedAt = new Date(siweMsg.issuedAt).getTime();
-      if (issuedAt > Date.now()) {
-        return NextResponse.json(
-          { error: "issuedAt is in the future" },
-          { status: 400 }
-        );
-      }
-      if (Date.now() - issuedAt > MAX_AGE_MS) {
-        return NextResponse.json(
-          { error: "Message too old — issuedAt is more than 5 minutes ago" },
-          { status: 400 }
-        );
-      }
-    }
-
-    // Validate expirationTime is in the future
-    if (siweMsg.expirationTime) {
-      const expiration = new Date(siweMsg.expirationTime).getTime();
-      if (expiration <= Date.now()) {
-        return NextResponse.json(
-          { error: "Message has expired" },
-          { status: 400 }
-        );
-      }
-    }
-
-    // Connect to DB
+    // Connect to DB (needed for nonce check)
     await connectToDatabase();
 
-    // Check nonce hasn't been used
-    const existingNonce = await UsedNonce.findOne({ nonce: siweMsg.nonce });
-    if (existingNonce) {
+    // Validate the SIWX message (timestamps, URI, nonce)
+    const resourceUri = `https://${SIWX_DOMAIN}/api/onboard`;
+    const validation = await validateSIWxMessage(payload, resourceUri, {
+      maxAge: MAX_AGE_MS,
+      checkNonce: async (nonce: string) => {
+        const existing = await UsedNonce.findOne({ nonce });
+        return !existing;
+      },
+    });
+
+    if (!validation.valid) {
       return NextResponse.json(
-        { error: "NONCE_REUSED", message: "Replay attack detected — nonce already used" },
+        { error: validation.error },
         { status: 400 }
       );
     }
 
-    // Verify the EVM signature using siwe's built-in verification
-    try {
-      await siweMsg.verify({ signature });
-    } catch {
+    // Verify the signature (works for EVM and Solana)
+    const verification = await verifySIWxSignature(payload);
+    if (!verification.valid) {
       return NextResponse.json(
-        { error: "INVALID_SIGNATURE", message: "SIWX signature verification failed" },
+        { error: "INVALID_SIGNATURE", message: verification.error || "SIWX signature verification failed" },
         { status: 401 }
       );
     }
 
+    const address = verification.address!;
+
     // Mark nonce as used
     await UsedNonce.create({
-      nonce: siweMsg.nonce,
+      nonce: payload.nonce,
       usedAt: new Date(),
       expiresAt: new Date(Date.now() + NONCE_TTL_MS),
     });
 
     // Generate onboarding ID
     const onboardingId = uuidv4();
-    const walletAddress = siweMsg.address.toLowerCase();
-    const chain = `eip155:${siweMsg.chainId}`;
+    const walletAddress = address.toLowerCase();
+    const chain = payload.chainId;
 
     // Create onboarding record
     const onboarding = await Onboarding.create({

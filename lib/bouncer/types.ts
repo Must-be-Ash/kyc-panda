@@ -40,6 +40,13 @@ export interface KYCGateMetadata {
   required: boolean;
   onboardingUrl: string;
   provider: string;
+  onboarding?: {
+    method: string;
+    contentType: string;
+    body: Record<string, string>;
+    response: Record<string, string>;
+    docsUrl: string;
+  };
 }
 
 /** Combined extensions object for 402 responses */

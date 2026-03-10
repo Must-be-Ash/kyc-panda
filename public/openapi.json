@@ -90,8 +90,7 @@
                 "$ref": "#/components/schemas/OnboardRequest"
               },
               "example": {
-                "siwxMessage": "kyc-panda.vercel.app wants you to sign in with your Ethereum account:\n0x857b06519E91e3A54538791bDbb0E22373e36b66\n\nSign in to verify KYC status\n\nURI: https://kyc-panda.vercel.app/api/onboard\nVersion: 1\nChain ID: 8453\nNonce: a1b2c3d4e5f67890a1b2c3d4e5f67890\nIssued At: 2026-03-10T10:30:00.000Z\nExpiration Time: 2026-03-10T10:35:00.000Z",
-                "signature": "0x2d6a7588d6acca505cbf0d9a4a227e0c..."
+                "siwxHeader": "eyJkb21haW4iOiJreWMtcGFuZGEudmVyY2VsLmFwcCIsImFkZHJlc3MiOiIweDg1N2IwNjUxOUU5MWUzQTU0NTM4NzkxYkRiYjBFMjIzNzNlMzZiNjYiLCJ1cmkiOiJodHRwczovL2t5Yy1wYW5kYS52ZXJjZWwuYXBwL2FwaS9vbmJvYXJkIiwidmVyc2lvbiI6IjEiLCJjaGFpbklkIjoiZWlwMTU1Ojg0NTMyIiwidHlwZSI6ImVpcDE5MSIsIm5vbmNlIjoiYTFiMmMzZDRlNWY2Nzg5MGExYjJjM2Q0ZTVmNjc4OTAiLCJpc3N1ZWRBdCI6IjIwMjYtMDMtMTBUMTA6MzA6MDAuMDAwWiIsInNpZ25hdHVyZSI6IjB4Li4uIn0="
               }
             }
           }
@@ -216,17 +215,12 @@
       "OnboardRequest": {
         "type": "object",
         "properties": {
-          "siwxMessage": {
+          "siwxHeader": {
             "type": "string",
-            "description": "EIP-4361 (SIWE) formatted message string. Must include domain matching kyc-panda.vercel.app, a fresh nonce, and issuedAt within 5 minutes."
-          },
-          "signature": {
-            "type": "string",
-            "pattern": "^0x[a-fA-F0-9]+$",
-            "description": "EIP-191 signature of the SIWX message, hex-encoded with 0x prefix."
+            "description": "Base64-encoded SIWX payload JSON. Same format as the SIGN-IN-WITH-X header in x402 requests. Must include domain matching kyc-panda.vercel.app, a fresh nonce, issuedAt within 5 minutes, and a valid wallet signature. Create with createSIWxPayload() + encodeSIWxHeader() from @x402/extensions/sign-in-with-x."
           }
         },
-        "required": ["siwxMessage", "signature"]
+        "required": ["siwxHeader"]
       },
       "OnboardResponse": {
         "type": "object",

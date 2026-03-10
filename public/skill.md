@@ -74,36 +74,37 @@ When you get a 402 with these extensions:
 
 ### Start KYC Onboarding
 
-Build a SIWE message and sign it with your wallet:
+Build a SIWX (CAIP-122) message and sign it with your wallet:
 
 ```typescript
-import { SiweMessage } from "siwe";
+import { createSIWxPayload, encodeSIWxHeader } from "@x402/extensions/sign-in-with-x";
 import { privateKeyToAccount } from "viem/accounts";
-import crypto from "crypto";
 
 const account = privateKeyToAccount(process.env.WALLET_PRIVATE_KEY as `0x${string}`);
 
-// Build SIWE message
-const siweMessage = new SiweMessage({
+// Build SIWX payload for onboarding
+const now = new Date();
+const siwxInfo = {
   domain: "kyc-panda.vercel.app",
-  address: account.address,
   uri: "https://kyc-panda.vercel.app/api/onboard",
   version: "1",
-  chainId: 8453,
-  nonce: crypto.randomBytes(16).toString("hex"),
-  issuedAt: new Date().toISOString(),
-  expirationTime: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
-  statement: "Sign in to verify KYC status",
-});
+  chainId: "eip155:84532",
+  type: "eip191" as const,
+  nonce: crypto.randomUUID().replace(/-/g, "").slice(0, 32),
+  issuedAt: now.toISOString(),
+  expirationTime: new Date(now.getTime() + 5 * 60 * 1000).toISOString(),
+  statement: "Sign in to start KYC verification",
+};
 
-const messageString = siweMessage.prepareMessage();
-const signature = await account.signMessage({ message: messageString });
+// Sign with SIWX (chain-agnostic — works for EVM, Solana, etc.)
+const payload = await createSIWxPayload(siwxInfo, account);
+const siwxHeader = encodeSIWxHeader(payload);
 
 // Submit to onboarding endpoint
 const response = await fetch("https://kyc-panda.vercel.app/api/onboard", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ siwxMessage: messageString, signature }),
+  body: JSON.stringify({ siwxHeader }),
 });
 
 const { onboardingId, verificationUrl } = await response.json();
@@ -116,47 +117,27 @@ console.log("Human should open:", verificationUrl);
 Once the human completes verification on Didit, the wallet is approved. Now when hitting KYC-gated endpoints, sign the SIWX challenge from the 402 response:
 
 ```typescript
-import { SiweMessage } from "siwe";
+import { createSIWxPayload, encodeSIWxHeader } from "@x402/extensions/sign-in-with-x";
 
 // Parse the sign-in-with-x challenge from the 402 response
 const challenge = extensions["sign-in-with-x"];
+const chain = challenge.supportedChains[0];
 
-const siweMessage = new SiweMessage({
-  domain: challenge.info.domain,
-  address: account.address,
-  uri: challenge.info.uri,
-  version: challenge.info.version,
-  chainId: parseInt(challenge.supportedChains[0].chainId.split(":")[1]),
-  nonce: challenge.info.nonce,
-  issuedAt: challenge.info.issuedAt,
-  expirationTime: challenge.info.expirationTime,
-  statement: challenge.info.statement,
-  resources: challenge.info.resources,
-});
-
-const messageString = siweMessage.prepareMessage();
-const signature = await account.signMessage({ message: messageString });
-
-// Build the SIWX proof
-const proof = {
-  domain: challenge.info.domain,
-  address: account.address,
-  uri: challenge.info.uri,
-  version: challenge.info.version,
-  chainId: challenge.supportedChains[0].chainId,
-  type: challenge.supportedChains[0].type,
-  nonce: challenge.info.nonce,
-  issuedAt: challenge.info.issuedAt,
-  expirationTime: challenge.info.expirationTime,
-  statement: challenge.info.statement,
-  resources: challenge.info.resources,
-  signature,
+// Build complete SIWX info from the server's challenge
+const siwxInfo = {
+  ...challenge.info,
+  chainId: chain.chainId,
+  type: chain.type,
 };
+
+// Sign with SIWX (chain-agnostic)
+const payload = await createSIWxPayload(siwxInfo, account);
+const siwxHeader = encodeSIWxHeader(payload);
 
 // Retry the request with SIWX proof
 const retryResponse = await fetch(originalUrl, {
   headers: {
-    "SIGN-IN-WITH-X": btoa(JSON.stringify(proof)),
+    "SIGN-IN-WITH-X": siwxHeader,
   },
 });
 ```
@@ -168,10 +149,10 @@ const retryResponse = await fetch(originalUrl, {
 ### Install
 
 ```bash
-npm install siwe viem
+npm install @x402/extensions
 ```
 
-Copy the bouncer library from `lib/bouncer/` or install when published as `@kyc-panda /gate`.
+Copy the bouncer library from `lib/bouncer/` or install when published as `@kyc-panda/gate`.
 
 ### Add KYC Gate to Your x402 Endpoint
 
@@ -228,7 +209,7 @@ The hook automatically:
 - Reads the `SIGN-IN-WITH-X` header
 - Base64 decodes and parses the SIWX proof
 - Validates domain, timestamps, chain ID
-- Verifies the EVM signature (EIP-191)
+- Verifies the wallet signature
 - Calls the verify endpoint to check KYC status
 
 ---
@@ -301,7 +282,8 @@ Base64-encoded JSON:
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/verify/{address}` | GET | Check KYC status for a wallet |
-| `/api/onboard` | POST | Start KYC onboarding (SIWX message + signature) |
+| `/api/onboard` | POST | Start KYC onboarding (`{ siwxHeader }`) |
+| `/api/onboard` | GET | API discovery (returns request schema + flow) |
 | `/api/health` | GET | Service health check |
 
 ## Technical Details
@@ -309,8 +291,8 @@ Base64-encoded JSON:
 | Property | Value |
 |----------|-------|
 | Base URL | `https://kyc-panda.vercel.app` |
-| SIWX Standard | CAIP-122 / EIP-4361 (SIWE) |
-| Supported Chains | EVM (eip155:*) with EIP-191 signatures |
+| SIWX Standard | CAIP-122 (Sign-In-With-X) |
+| Supported Chains | EVM (eip155:*) |
 | KYC Provider | Didit |
 | KYC Validity | 1 year from approval |
 | Nonce TTL | 24 hours (single-use) |

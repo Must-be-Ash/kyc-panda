@@ -271,31 +271,32 @@ async function handleRequest(request: Request) {
               Start KYC onboarding
             </p>
             <MultiLineCodeBlock
-              label="Sign a SIWE message and submit to begin verification"
-              code={`import { SiweMessage } from "siwe";
+              label="Sign a SIWX message and submit to begin verification"
+              code={`import { createSIWxPayload, encodeSIWxHeader } from "@x402/extensions/sign-in-with-x";
 import { privateKeyToAccount } from "viem/accounts";
-import crypto from "crypto";
 
 const account = privateKeyToAccount(process.env.KEY as \`0x\${string}\`);
+const now = new Date();
 
-const siweMessage = new SiweMessage({
+const siwxInfo = {
   domain: "kyc-panda.vercel.app",
-  address: account.address,
   uri: "https://kyc-panda.vercel.app/api/onboard",
   version: "1",
-  chainId: 8453,
-  nonce: crypto.randomBytes(16).toString("hex"),
-  issuedAt: new Date().toISOString(),
-  statement: "Sign in to verify KYC status",
-});
+  chainId: "eip155:84532",
+  type: "eip191" as const,
+  nonce: crypto.randomUUID().replace(/-/g, "").slice(0, 32),
+  issuedAt: now.toISOString(),
+  expirationTime: new Date(now.getTime() + 5 * 60 * 1000).toISOString(),
+  statement: "Sign in to start KYC verification",
+};
 
-const msg = siweMessage.prepareMessage();
-const signature = await account.signMessage({ message: msg });
+const payload = await createSIWxPayload(siwxInfo, account);
+const siwxHeader = encodeSIWxHeader(payload);
 
 const res = await fetch("https://kyc-panda.vercel.app/api/onboard", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ siwxMessage: msg, signature }),
+  body: JSON.stringify({ siwxHeader }),
 });
 
 const { verificationUrl } = await res.json();

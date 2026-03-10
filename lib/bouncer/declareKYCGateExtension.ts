@@ -69,6 +69,19 @@ export function declareKYCGateExtension(
       required: true,
       onboardingUrl: options.onboardingUrl || DEFAULT_ONBOARDING_URL,
       provider: options.provider || "didit",
+      onboarding: {
+        method: "POST",
+        contentType: "application/json",
+        body: {
+          siwxMessage: "SIWX (CAIP-122) formatted message string. Domain must match the onboarding host. Use a fresh nonce, issuedAt within 5 minutes.",
+          signature: "Wallet signature of the siwxMessage, hex-encoded with 0x prefix.",
+        },
+        response: {
+          onboardingId: "UUID tracking this onboarding session",
+          verificationUrl: "URL where the human wallet owner completes identity verification",
+        },
+        docsUrl: `${options.onboardingUrl || DEFAULT_ONBOARDING_URL}`,
+      },
     },
   };
 }
