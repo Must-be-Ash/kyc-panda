@@ -4,7 +4,7 @@ import { connectToDatabase } from "@/lib/mongodb";
 import { Onboarding } from "@/lib/models/onboarding";
 import { VerifiedWallet } from "@/lib/models/verifiedWallet";
 
-const DIDIT_WEBHOOK_SECRET = process.env.DIDIT_WEBHOOK_SECRET || "";
+const DIDIT_WEBHOOK_SECRET = process.env.DIDIT_WEBHOOK_SECRET;
 const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
 const MAX_TIMESTAMP_DRIFT_S = 300; // 5 minutes
 
@@ -45,6 +45,13 @@ export async function POST(request: NextRequest) {
           { status: 401 }
         );
       }
+    }
+
+    if (!DIDIT_WEBHOOK_SECRET) {
+      return NextResponse.json(
+        { error: "Webhook secret not configured" },
+        { status: 503 }
+      );
     }
 
     if (!verifyWebhookSignature(rawBody, signature, DIDIT_WEBHOOK_SECRET)) {

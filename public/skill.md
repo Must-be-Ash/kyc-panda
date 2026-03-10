@@ -171,7 +171,7 @@ const retryResponse = await fetch(originalUrl, {
 npm install siwe viem
 ```
 
-Copy the bouncer library from `lib/bouncer/` or install when published as `@x402kyc/gate`.
+Copy the bouncer library from `lib/bouncer/` or install when published as `@kyc-panda /gate`.
 
 ### Add KYC Gate to Your x402 Endpoint
 

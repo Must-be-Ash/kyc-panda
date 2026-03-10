@@ -1,6 +1,6 @@
-# x402kyc
+# kyc-panda 
 
-`x402kyc` is a Next.js service for wallet-based KYC gating in x402 flows.
+`kyc-panda ` is a Next.js service for wallet-based KYC gating in x402 flows.
 It lets clients sign in with SIWX, start KYC onboarding, and verify whether a wallet is approved.
 
 ## What It Does
@@ -10,6 +10,10 @@ It lets clients sign in with SIWX, start KYC onboarding, and verify whether a wa
 - `POST /api/webhook` receives KYC provider updates and syncs wallet status.
 
 The repo also includes helpers in `lib/bouncer/` for declaring a KYC gate in a `402` response and validating the returned SIWX proof.
+
+## Privacy
+
+This app stores **no PII**. The only data persisted is wallet addresses (public), KYC status, and timestamps. All identity verification — documents, selfies, personal info — is handled entirely by Didit's hosted flow. The app never sees or stores any identity documents.
 
 ## Local Setup
 
