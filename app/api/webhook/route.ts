@@ -6,27 +6,47 @@ import { VerifiedWallet } from "@/lib/models/verifiedWallet";
 
 const DIDIT_WEBHOOK_SECRET = process.env.DIDIT_WEBHOOK_SECRET || "";
 const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
+const MAX_TIMESTAMP_DRIFT_S = 300; // 5 minutes
 
 function verifyWebhookSignature(
   payload: string,
   signature: string,
   secret: string
 ): boolean {
+  if (!signature || !secret) return false;
+
   const hmac = crypto.createHmac("sha256", secret);
   hmac.update(payload);
   const expectedSignature = hmac.digest("hex");
-  return crypto.timingSafeEqual(
-    Buffer.from(signature),
-    Buffer.from(expectedSignature)
-  );
+
+  const expectedBuf = Buffer.from(expectedSignature, "utf8");
+  const providedBuf = Buffer.from(signature, "utf8");
+
+  if (expectedBuf.length !== providedBuf.length) return false;
+
+  return crypto.timingSafeEqual(expectedBuf, providedBuf);
 }
 
 export async function POST(request: NextRequest) {
   try {
     const rawBody = await request.text();
 
-    // Verify webhook signature (Didit v3 uses x-signature-v2 header)
-    const signature = request.headers.get("x-signature-v2") || "";
+    // Verify webhook signature — Didit sends X-Signature and X-Timestamp headers
+    const signature = request.headers.get("x-signature") || "";
+    const timestamp = request.headers.get("x-timestamp") || "";
+
+    // Validate timestamp freshness (within 5 minutes)
+    if (timestamp) {
+      const incomingTime = parseInt(timestamp, 10);
+      const currentTime = Math.floor(Date.now() / 1000);
+      if (Math.abs(currentTime - incomingTime) > MAX_TIMESTAMP_DRIFT_S) {
+        return NextResponse.json(
+          { error: "Request timestamp is stale" },
+          { status: 401 }
+        );
+      }
+    }
+
     if (!verifyWebhookSignature(rawBody, signature, DIDIT_WEBHOOK_SECRET)) {
       return NextResponse.json(
         { error: "Invalid webhook signature" },

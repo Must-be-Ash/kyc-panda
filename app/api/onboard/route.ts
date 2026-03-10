@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
     // Create Didit verification session
     let verificationUrl: string;
     try {
-      const diditResponse = await fetch("https://verification.didit.me/v3/session/", {
+      const diditResponse = await fetch("https://verification.didit.me/v2/session/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
       }
 
       const diditData = await diditResponse.json();
-      verificationUrl = diditData.verification_url;
+      verificationUrl = diditData.url;
 
       // Update onboarding record with Didit session ID
       onboarding.diditSessionId = diditData.session_id;
