@@ -33,7 +33,7 @@ if (!result.grantAccess) {
 }
 ```
 
-See [apply.md](./apply.md) for the full integration guide.
+See [apply.md](./apply.md) for the full integration guide, or check out the [example implementation](https://github.com/Must-be-Ash/x402test-endpoint) ([live demo](https://x402test-endpoint.vercel.app/)).
 
 ## Privacy
 

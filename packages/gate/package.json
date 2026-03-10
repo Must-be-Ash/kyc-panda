@@ -1,6 +1,6 @@
 {
   "name": "kyc-panda",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "KYC gate extension for x402 endpoints. Verify once, transact anywhere.",
   "license": "MIT",
   "type": "module",
@@ -41,6 +41,6 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/ArshanKhanifar/x402kyc"
+    "url": "https://github.com/Must-be-Ash/kyc-panda"
   }
 }
