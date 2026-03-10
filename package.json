@@ -9,12 +9,17 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@tailwindcss/postcss": "^4.2.1",
     "@vercel/analytics": "^2.0.0",
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.35.2",
     "mongoose": "^9.2.4",
     "next": "16.1.6",
+    "postcss": "^8.5.8",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "siwe": "^3.0.0",
+    "tailwindcss": "^4.2.1",
     "uuid": "^13.0.0",
     "viem": "^2.47.1"
   },
