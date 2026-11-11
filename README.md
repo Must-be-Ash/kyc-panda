@@ -1,5 +1,7 @@
 # kyc-panda 
 
+> **Not maintained.** x402 and the services this uses may have changed since it was built; check the latest x402 docs before relying on it.
+
 `kyc-panda ` is a Next.js service for wallet-based KYC gating in x402 flows.
 It lets clients sign in with SIWX, start KYC onboarding, and verify whether a wallet is approved.
 
